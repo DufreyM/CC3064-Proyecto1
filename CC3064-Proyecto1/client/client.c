@@ -1,0 +1,178 @@
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include "command_parser.h"
+#include "receiver.h"
+
+#define BUFFER_SIZE 1024
+
+/* ================= CONEXION ================= */
+static int connect_to_server(const char *ip, int port) {
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("socket");
+        return -1;
+    }
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((uint16_t)port);
+
+    if (inet_pton(AF_INET, ip, &addr.sin_addr) <= 0) {
+        fprintf(stderr, "[ERROR] IP invalida\n");
+        close(sockfd);
+        return -1;
+    }
+
+    printf("[INFO] Conectando a %s:%d...\n", ip, port);
+
+    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("[ERROR] connect");
+        close(sockfd);
+        return -1;
+    }
+
+    printf("[INFO] Conexion establecida\n");
+    return sockfd;
+}
+
+/* ================= HELP ================= */
+static void print_help(void) {
+    printf("\nComandos disponibles:\n");
+    printf("  /broadcast <mensaje>\n");
+    printf("  /msg <usuario> <mensaje>\n");
+    printf("  /status <ACTIVO|OCUPADO|INACTIVO>\n");
+    printf("  /list\n");
+    printf("  /info <usuario>\n");
+    printf("  /help\n");
+    printf("  /exit\n\n");
+}
+
+/* ================= SEND ================= */
+static int send_text(int sockfd, const char *text) {
+    return send(sockfd, text, strlen(text), 0);
+}
+
+/* ================= MAIN ================= */
+int main(int argc, char **argv) {
+    int sockfd;
+    int port;
+    pthread_t rx_tid;
+    char line[1200];
+
+    if (argc != 4) {
+        fprintf(stderr, "Uso: ./cliente <username> <IP_servidor> <puerto>\n");
+        return 1;
+    }
+
+    port = atoi(argv[3]);
+    if (port <= 0 || port > 65535) {
+        fprintf(stderr, "Puerto invalido\n");
+        return 1;
+    }
+
+    sockfd = connect_to_server(argv[2], port);
+    if (sockfd < 0) return 1;
+
+    /* ================= REGISTER ================= */
+    {
+        char buffer[BUFFER_SIZE];
+        snprintf(buffer, sizeof(buffer), "REGISTER|%s\n", argv[1]);
+
+        if (send_text(sockfd, buffer) <= 0) {
+            printf("[ERROR] No se pudo registrar\n");
+            close(sockfd);
+            return 1;
+        }
+    }
+
+    /* ================= RECEIVER ================= */
+    if (pthread_create(&rx_tid, NULL, receiver_thread, &sockfd) != 0) {
+        perror("pthread_create");
+        close(sockfd);
+        return 1;
+    }
+
+    print_help();
+    printf("> ");
+
+    /* ================= LOOP ================= */
+    while (fgets(line, sizeof(line), stdin) != NULL) {
+
+        ParsedCommand cmd;
+
+        if (parse_input_line(line, &cmd) != 0) {
+            printf("[ERROR] Comando invalido\n> ");
+            continue;
+        }
+
+        char buffer[BUFFER_SIZE];
+
+        /* ================= HELP ================= */
+        if (cmd.type == PARSE_HELP) {
+            print_help();
+            printf("> ");
+            continue;
+        }
+
+        /* ================= EXIT ================= */
+        if (cmd.type == PARSE_EXIT) {
+            send_text(sockfd, "EXIT\n");
+            break;
+        }
+
+        /* ================= BROADCAST ================= */
+        if (cmd.type == PARSE_BROADCAST) {
+            snprintf(buffer, sizeof(buffer), "BROADCAST|%s\n", cmd.arg2);
+            if (send_text(sockfd, buffer) <= 0) break;
+            printf("> ");
+            continue;
+        }
+
+        /* ================= DIRECT ================= */
+        if (cmd.type == PARSE_DIRECT) {
+            snprintf(buffer, sizeof(buffer), "DIRECT|%s|%s\n", cmd.arg1, cmd.arg2);
+            if (send_text(sockfd, buffer) <= 0) break;
+            printf("> ");
+            continue;
+        }
+
+        /* ================= STATUS ================= */
+        if (cmd.type == PARSE_STATUS) {
+            snprintf(buffer, sizeof(buffer), "STATUS|%s\n", cmd.arg1);
+            if (send_text(sockfd, buffer) <= 0) break;
+            printf("> ");
+            continue;
+        }
+
+        /* ================= LIST ================= */
+        if (cmd.type == PARSE_LIST) {
+            send_text(sockfd, "LIST\n");
+            printf("> ");
+            continue;
+        }
+
+        /* ================= INFO ================= */
+        if (cmd.type == PARSE_INFO) {
+            snprintf(buffer, sizeof(buffer), "INFO|%s\n", cmd.arg1);
+            if (send_text(sockfd, buffer) <= 0) break;
+            printf("> ");
+            continue;
+        }
+    }
+
+    shutdown(sockfd, SHUT_RDWR);
+    close(sockfd);
+
+    pthread_join(rx_tid, NULL);
+
+    printf("[INFO] Cliente finalizado\n");
+    return 0;
+}
