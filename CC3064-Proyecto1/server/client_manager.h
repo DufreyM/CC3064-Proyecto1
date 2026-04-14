@@ -1,5 +1,8 @@
 #ifndef CLIENT_MANAGER_H
 #define CLIENT_MANAGER_H
+#define STATUS_ACTIVO "ACTIVO"
+#define STATUS_OCUPADO "OCUPADO"
+#define STATUS_INACTIVO "INACTIVO"
 
 #include <netinet/in.h>
 #include <pthread.h>

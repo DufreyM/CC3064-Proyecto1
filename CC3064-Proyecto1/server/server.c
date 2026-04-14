@@ -16,6 +16,7 @@ static int server_fd = -1; // 👈 para poder cerrarlo con Ctrl+C
 
 /* Handler para cerrar servidor limpiamente */
 void handle_sigint(int sig) {
+    (void)sig; // 🔥 evita warning
     printf("\n[INFO] Cerrando servidor...\n");
     if (server_fd != -1) {
         close(server_fd);

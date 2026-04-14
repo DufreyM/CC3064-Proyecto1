@@ -8,6 +8,7 @@
 #include "client_manager.h"
 
 #define BUFFER_SIZE 2048
+#define INACTIVITY_TIMEOUT 20
 
 /* ================= SEND ================= */
 static void send_response(int sockfd, const char *msg) {

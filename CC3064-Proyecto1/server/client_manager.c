@@ -17,9 +17,10 @@ void cm_init(void) {
 }
 
 static int is_valid_status(const char *status) {
-    return strcmp(status, STATUS_ACTIVO) == 0 ||
-           strcmp(status, STATUS_OCUPADO) == 0 ||
-           strcmp(status, STATUS_INACTIVO) == 0;
+    if (strcmp(status, STATUS_ACTIVO) == 0) return 1;
+    if (strcmp(status, STATUS_OCUPADO) == 0) return 1;
+    if (strcmp(status, STATUS_INACTIVO) == 0) return 1;
+    return 0;
 }
 
 /* ================= ADD CLIENT ================= */
@@ -289,8 +290,14 @@ int cm_mark_inactive_clients(int timeout_sec, InactiveEvent *events, int max_eve
             strncpy(g_clients[i].status, STATUS_INACTIVO, sizeof(g_clients[i].status) - 1);
 
             events[count].sockfd = g_clients[i].sockfd;
-            strncpy(events[count].username, g_clients[i].username,
-                    sizeof(events[count].username) - 1);
+            size_t len = strlen(g_clients[i].username);
+
+            if (len >= sizeof(events[count].username)) {
+                len = sizeof(events[count].username) - 1;
+            }
+
+            memcpy(events[count].username, g_clients[i].username, len);
+            events[count].username[len] = '\0';
 
             printf("[INACTIVE DETECTED] %s\n", g_clients[i].username);
 
