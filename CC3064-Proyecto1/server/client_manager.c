@@ -1,13 +1,25 @@
+/**
+ * ============================================================
+ * GESTOR DE CLIENTES - SERVIDOR
+ * Archivo: client_manager.c
+ *
+ * Maneja la lista de clientes conectados: registro, eliminación,
+ * búsqueda, estado y actividad. Usa mutex para acceso concurrente.
+ * ============================================================
+ */
+
 #include "client_manager.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
+/* Lista global de clientes protegida por mutex */
 static Client g_clients[MAX_CLIENTS];
 static int g_client_count = 0;
 static pthread_mutex_t g_clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/* Inicializa la estructura de clientes */
 void cm_init(void) {
     pthread_mutex_lock(&g_clients_mutex);
     memset(g_clients, 0, sizeof(g_clients));
@@ -16,6 +28,7 @@ void cm_init(void) {
     printf("[INIT] Client manager inicializado\n");
 }
 
+/* Verifica si el estado es válido */
 static int is_valid_status(const char *status) {
     if (strcmp(status, STATUS_ACTIVO) == 0) return 1;
     if (strcmp(status, STATUS_OCUPADO) == 0) return 1;
@@ -24,6 +37,7 @@ static int is_valid_status(const char *status) {
 }
 
 /* ================= ADD CLIENT ================= */
+/* Agrega un cliente validando duplicados */
 int cm_add_client(const char *username, const char *ip, int sockfd) {
     pthread_mutex_lock(&g_clients_mutex);
 
@@ -75,6 +89,7 @@ int cm_add_client(const char *username, const char *ip, int sockfd) {
 }
 
 /* ================= REMOVE ================= */
+/* Elimina un cliente por username */
 int cm_remove_client(const char *username) {
     pthread_mutex_lock(&g_clients_mutex);
 
@@ -95,6 +110,7 @@ int cm_remove_client(const char *username) {
     return -1;
 }
 
+/* Elimina un cliente por socket */
 int cm_remove_by_sockfd(int sockfd, char *out_username, int out_len) {
     pthread_mutex_lock(&g_clients_mutex);
 
@@ -121,6 +137,7 @@ int cm_remove_by_sockfd(int sockfd, char *out_username, int out_len) {
 }
 
 /* ================= FIND ================= */
+/* Busca un cliente por username */
 int cm_find_client(const char *username, Client *out) {
     pthread_mutex_lock(&g_clients_mutex);
 
@@ -137,6 +154,7 @@ int cm_find_client(const char *username, Client *out) {
 }
 
 /* ================= STATUS ================= */
+/* Actualiza el estado de un cliente */
 int cm_set_status(const char *username, const char *status) {
     if (!is_valid_status(status)) return -2;
 
@@ -160,6 +178,7 @@ int cm_set_status(const char *username, const char *status) {
 }
 
 /* ================= ACTIVITY ================= */
+/* Actualiza última actividad */
 int cm_update_activity(const char *username) {
     pthread_mutex_lock(&g_clients_mutex);
 
@@ -175,6 +194,7 @@ int cm_update_activity(const char *username) {
     return -1;
 }
 
+/* Reactiva usuario si estaba inactivo */
 int cm_reactivate_if_inactive(const char *username) {
     pthread_mutex_lock(&g_clients_mutex);
 
@@ -200,6 +220,7 @@ int cm_reactivate_if_inactive(const char *username) {
 }
 
 /* ================= SOCKETS ================= */
+/* Obtiene sockets excepto uno */
 int cm_get_sockets_except(int exclude_sockfd, int *out_sockets, int max_sockets) {
     int count = 0;
 
@@ -215,6 +236,7 @@ int cm_get_sockets_except(int exclude_sockfd, int *out_sockets, int max_sockets)
     return count;
 }
 
+/* Obtiene socket por username */
 int cm_get_socket_by_username(const char *username) {
     pthread_mutex_lock(&g_clients_mutex);
 
@@ -231,6 +253,7 @@ int cm_get_socket_by_username(const char *username) {
 }
 
 /* ================= LIST ================= */
+/* Construye lista de usuarios */
 int cm_build_user_list(char *buffer, int buffer_len) {
     int written = 0;
     buffer[0] = '\0';
@@ -256,6 +279,7 @@ int cm_build_user_list(char *buffer, int buffer_len) {
 }
 
 /* ================= INFO ================= */
+/* Construye info de un usuario */
 int cm_build_user_info(const char *username, char *buffer, int buffer_len) {
     pthread_mutex_lock(&g_clients_mutex);
 
@@ -274,6 +298,7 @@ int cm_build_user_info(const char *username, char *buffer, int buffer_len) {
 }
 
 /* ================= INACTIVITY ================= */
+/* Marca usuarios como inactivos por timeout */
 int cm_mark_inactive_clients(int timeout_sec, InactiveEvent *events, int max_events) {
     time_t now = time(NULL);
     int count = 0;
@@ -290,8 +315,8 @@ int cm_mark_inactive_clients(int timeout_sec, InactiveEvent *events, int max_eve
             strncpy(g_clients[i].status, STATUS_INACTIVO, sizeof(g_clients[i].status) - 1);
 
             events[count].sockfd = g_clients[i].sockfd;
-            size_t len = strlen(g_clients[i].username);
 
+            size_t len = strlen(g_clients[i].username);
             if (len >= sizeof(events[count].username)) {
                 len = sizeof(events[count].username) - 1;
             }

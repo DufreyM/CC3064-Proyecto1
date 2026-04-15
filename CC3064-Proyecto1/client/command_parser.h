@@ -1,7 +1,17 @@
+/**
+ * ============================================================
+ * PARSER DE COMANDOS - INTERFAZ
+ * Archivo: command_parser.h
+ *
+ * Define los tipos y estructuras usadas para representar
+ * comandos ingresados por el usuario en el cliente.
+ * ============================================================
+ */
+
 #ifndef COMMAND_PARSER_H
 #define COMMAND_PARSER_H
 
-/* Tipo logico de comando reconocido desde stdin del cliente. */
+/* Tipos de comandos soportados por el cliente */
 typedef enum {
     PARSE_INVALID = 0,
     PARSE_HELP,
@@ -13,14 +23,14 @@ typedef enum {
     PARSE_INFO
 } ParseType;
 
-/* Resultado del parseo: tipo + argumentos normalizados. */
+/* Resultado del parseo: tipo de comando + argumentos */
 typedef struct {
     ParseType type;
-    char arg1[32];
-    char arg2[957];
+    char arg1[32];   /* usuario o estado */
+    char arg2[957];  /* mensaje */
 } ParsedCommand;
 
-/* Convierte una linea de texto en un comando del protocolo cliente. */
+/* Convierte una línea de texto en un comando estructurado */
 int parse_input_line(const char *line, ParsedCommand *out);
 
 #endif

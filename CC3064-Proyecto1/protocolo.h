@@ -1,28 +1,18 @@
+/**
+ * ============================================================
+ * PROTOCOLO DE COMUNICACIÓN
+ * Archivo: protocolo.h
+ *
+ * Define el formato de mensajes entre cliente y servidor.
+ * Se basa en texto plano con separador '|' y terminación '\n'.
+ *
+ * Formato general:
+ *   COMANDO|arg1|arg2|...\n
+ * ============================================================
+ */
+
 #ifndef PROTOCOLO_H
 #define PROTOCOLO_H
-
-/*
- * PROTOCOLO DE COMUNICACION (TEXTO PLANO)
- * ---------------------------------------
- * Este archivo define el formato oficial de mensajes entre cliente y servidor.
- *
- * FORMATO GENERAL:
- *   COMANDO|arg1|arg2|...\n
- *
- * Todos los mensajes:
- *   - Son texto plano (ASCII)
- *   - Usan '|' como separador
- *   - Terminan con '\n'
- *
- * Ejemplos:
- *   REGISTER|juan\n
- *   BROADCAST|hola a todos\n
- *   DIRECT|maria|hola\n
- *   LIST\n
- *   INFO|juan\n
- *   STATUS|ACTIVO\n
- *   EXIT\n
- */
 
 /* ================= COMANDOS CLIENTE -> SERVIDOR ================= */
 
@@ -43,26 +33,14 @@
 #define RESP_INFO          "INFO"
 #define RESP_DISCONNECTED  "DISCONNECTED"
 
+/* ================= FORMATOS PRINCIPALES ================= */
 /*
- * Formatos esperados:
- *
- * OK:
- *   OK|mensaje\n
- *
- * ERROR:
- *   ERROR|mensaje\n
- *
- * MENSAJE:
- *   MSG|emisor|destino|mensaje\n
- *
- * LISTA:
- *   LIST|usuario1,ACTIVO;usuario2,OCUPADO\n
- *
- * INFO:
- *   INFO|ip,estado\n
- *
- * DESCONECTADO:
- *   DISCONNECTED|usuario\n
+ * OK:            OK|mensaje\n
+ * ERROR:         ERROR|mensaje\n
+ * MENSAJE:       MSG|emisor|destino|mensaje\n
+ * LISTA:         LIST|user,status;...\n
+ * INFO:          INFO|ip,status\n
+ * DESCONECTADO:  DISCONNECTED|usuario\n
  */
 
 /* ================= STATUS ================= */

@@ -1,12 +1,25 @@
+/**
+ * ============================================================
+ * PARSER DE COMANDOS - CLIENTE
+ * Archivo: command_parser.c
+ *
+ * Interpreta los comandos ingresados por el usuario y los
+ * convierte en una estructura ParsedCommand para su uso interno.
+ *
+ * Soporta comandos como: broadcast, msg, status, list, info,
+ * help y exit. Incluye validación y normalización básica.
+ * ============================================================
+ */
+
 #include "command_parser.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
-/* ================= UTILS ================= */
+/* ================= UTILIDADES ================= */
 
-/* Avanza hasta el siguiente caracter no espacio */
+/* Avanza hasta el siguiente carácter no espacio */
 static const char *skip_spaces(const char *s) {
     while (*s && isspace((unsigned char)*s)) {
         s++;
@@ -14,56 +27,62 @@ static const char *skip_spaces(const char *s) {
     return s;
 }
 
-/* Convierte string a MAYUSCULAS */
+/* Convierte una cadena a mayúsculas */
 static void to_uppercase(char *s) {
     for (; *s; s++) {
         *s = (char)toupper((unsigned char)*s);
     }
 }
 
-/* Copia segura */
+/* Copia segura de strings */
 static void copy_token(char *dst, int dst_len, const char *src) {
     snprintf(dst, (size_t)dst_len, "%s", src);
 }
 
-/* ================= PARSER ================= */
-
+/* ============================================================
+ * Analiza una línea de entrada y la convierte en un comando
+ * estructurado (ParsedCommand).
+ * Retorna 0 si es válido, -1 si hay error.
+ * ============================================================ */
 int parse_input_line(const char *line, ParsedCommand *out) {
     char cmd[64] = {0};
     const char *p;
 
+    /* Inicialización */
     memset(out, 0, sizeof(ParsedCommand));
     out->type = PARSE_INVALID;
 
     if (line == NULL) return -1;
 
+    /* Ignorar espacios iniciales */
     p = skip_spaces(line);
     if (*p == '\0') return -1;
 
+    /* Leer comando */
     if (sscanf(p, "%63s", cmd) != 1) return -1;
 
-    /* 🔥 hacer comandos case-insensitive */
+    /* Comparación sin importar mayúsculas */
     to_uppercase(cmd);
 
-    /* ================= HELP ================= */
+    /* HELP */
     if (strcmp(cmd, "/HELP") == 0) {
         out->type = PARSE_HELP;
         return 0;
     }
 
-    /* ================= EXIT ================= */
+    /* EXIT */
     if (strcmp(cmd, "/EXIT") == 0) {
         out->type = PARSE_EXIT;
         return 0;
     }
 
-    /* ================= LIST ================= */
+    /* LIST */
     if (strcmp(cmd, "/LIST") == 0) {
         out->type = PARSE_LIST;
         return 0;
     }
 
-    /* ================= BROADCAST ================= */
+    /* BROADCAST */
     if (strcmp(cmd, "/BROADCAST") == 0) {
         const char *msg = strstr(p, " ");
         if (!msg) return -1;
@@ -76,7 +95,7 @@ int parse_input_line(const char *line, ParsedCommand *out) {
         return 0;
     }
 
-    /* ================= DIRECT ================= */
+    /* MENSAJE DIRECTO */
     if (strcmp(cmd, "/MSG") == 0) {
         char user[32] = {0};
         char message[957] = {0};
@@ -92,7 +111,7 @@ int parse_input_line(const char *line, ParsedCommand *out) {
         return 0;
     }
 
-    /* ================= STATUS ================= */
+    /* STATUS */
     if (strcmp(cmd, "/STATUS") == 0) {
         char status[16] = {0};
 
@@ -101,10 +120,9 @@ int parse_input_line(const char *line, ParsedCommand *out) {
             return -1;
         }
 
-        /* 🔥 normalizar a MAYUSCULAS */
+        /* Normalizar estado */
         to_uppercase(status);
 
-        /* 🔥 mapear valores comunes */
         if (strcmp(status, "ACTIVO") == 0 || strcmp(status, "ACTIVE") == 0) {
             strcpy(status, "ACTIVO");
         } else if (strcmp(status, "OCUPADO") == 0 || strcmp(status, "BUSY") == 0) {
@@ -120,7 +138,7 @@ int parse_input_line(const char *line, ParsedCommand *out) {
         return 0;
     }
 
-    /* ================= INFO ================= */
+    /* INFO */
     if (strcmp(cmd, "/INFO") == 0) {
         char user[32] = {0};
 
@@ -134,5 +152,6 @@ int parse_input_line(const char *line, ParsedCommand *out) {
         return 0;
     }
 
+    /* Comando no válido */
     return -1;
 }

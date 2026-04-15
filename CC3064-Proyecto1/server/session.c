@@ -1,3 +1,14 @@
+/**
+ * ============================================================
+ * SESIONES DE CLIENTE - SERVIDOR
+ * Archivo: session.c
+ *
+ * Maneja la comunicación con cada cliente en un hilo independiente.
+ * Procesa comandos del protocolo, envía respuestas y gestiona
+ * desconexión e inactividad.
+ * ============================================================
+ */
+
 #include "session.h"
 
 #include <stdio.h>
@@ -10,12 +21,12 @@
 #define BUFFER_SIZE 2048
 #define INACTIVITY_TIMEOUT 20
 
-/* ================= SEND ================= */
+/* Envía respuesta al cliente */
 static void send_response(int sockfd, const char *msg) {
     send(sockfd, msg, strlen(msg), 0);
 }
 
-/* ================= PARSE ================= */
+/* Procesa comandos del protocolo */
 static void handle_command(int sockfd, char *line, char *username, int *registered, const char *ip) {
 
     char *cmd = strtok(line, "|");
@@ -146,7 +157,7 @@ static void handle_command(int sockfd, char *line, char *username, int *register
     send_response(sockfd, "ERROR|Comando invalido\n");
 }
 
-/* ================= THREAD ================= */
+/* Hilo por cliente */
 void *client_session_thread(void *arg) {
     SessionArgs *args = (SessionArgs *)arg;
 
@@ -162,17 +173,15 @@ void *client_session_thread(void *arg) {
 
     while (1) {
         int n = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-
         if (n <= 0) break;
 
         buffer[n] = '\0';
 
-        /* 🔥 manejar múltiples mensajes */
+        /* Procesar múltiples mensajes */
         char *line = strtok(buffer, "\n");
 
         while (line != NULL) {
 
-            /* 🔥 limpiar posibles residuos */
             line[strcspn(line, "\r")] = '\0';
 
             char temp[BUFFER_SIZE];
@@ -185,14 +194,13 @@ void *client_session_thread(void *arg) {
         }
     }
 
-    /* ================= CLEANUP ================= */
+    /* Cleanup al desconectar */
     if (registered) {
         char removed[32] = {0};
 
         if (cm_remove_by_sockfd(sockfd, removed, sizeof(removed)) == 0) {
             printf("[DISCONNECT] %s\n", removed);
 
-            /* 🔥 NOTIFICAR A TODOS */
             int sockets[MAX_CLIENTS];
             int count = cm_get_sockets_except(sockfd, sockets, MAX_CLIENTS);
 
@@ -209,7 +217,7 @@ void *client_session_thread(void *arg) {
     return NULL;
 }
 
-/* ================= WATCHDOG ================= */
+/* Hilo watchdog para inactividad */
 void *inactivity_watchdog_thread(void *arg) {
     (void)arg;
 

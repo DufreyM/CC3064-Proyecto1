@@ -1,3 +1,14 @@
+/**
+ * ============================================================
+ * SERVIDOR TCP - SISTEMA DE MENSAJERÍA
+ * Archivo: servidor.c
+ *
+ * Inicializa el servidor, acepta conexiones entrantes y crea
+ * un hilo por cada cliente. Incluye manejo de señales y un
+ * watchdog para detectar inactividad.
+ * ============================================================
+ */
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -12,11 +23,11 @@
 #include "client_manager.h"
 #include "session.h"
 
-static int server_fd = -1; // 👈 para poder cerrarlo con Ctrl+C
+static int server_fd = -1; // socket del servidor
 
-/* Handler para cerrar servidor limpiamente */
+/* Maneja Ctrl+C para cerrar el servidor correctamente */
 void handle_sigint(int sig) {
-    (void)sig; // 🔥 evita warning
+    (void)sig;
     printf("\n[INFO] Cerrando servidor...\n");
     if (server_fd != -1) {
         close(server_fd);
@@ -24,6 +35,7 @@ void handle_sigint(int sig) {
     exit(0);
 }
 
+/* Crea, configura y deja listo el socket del servidor */
 static int create_server_socket(int port) {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
@@ -42,9 +54,8 @@ static int create_server_socket(int port) {
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
 
-    // 🔥 IMPORTANTE: esto permite servidor en cualquier máquina
+    /* Permite aceptar conexiones en cualquier interfaz */
     addr.sin_addr.s_addr = INADDR_ANY;
-
     addr.sin_port = htons((uint16_t)port);
 
     if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
@@ -74,11 +85,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    /* Evita cierre por SIGPIPE al escribir en sockets cerrados */
     signal(SIGPIPE, SIG_IGN);
 
-    // 🔥 NUEVO: manejar Ctrl+C correctamente
+    /* Manejo de Ctrl+C */
     signal(SIGINT, handle_sigint);
 
+    /* Inicializar gestor de clientes */
     cm_init();
 
     server_fd = create_server_socket(port);
@@ -86,6 +99,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    /* Hilo watchdog para detectar inactividad */
     pthread_t watchdog_tid;
     if (pthread_create(&watchdog_tid, NULL, inactivity_watchdog_thread, NULL) != 0) {
         perror("pthread_create watchdog");
@@ -100,20 +114,19 @@ int main(int argc, char **argv) {
     printf("Esperando conexiones...\n");
     printf("=====================================\n");
 
+    /* Loop principal: aceptar conexiones */
     while (1) {
         struct sockaddr_in client_addr;
         socklen_t addr_len = sizeof(client_addr);
 
         int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
         if (client_fd < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
+            if (errno == EINTR) continue;
             perror("accept");
             continue;
         }
 
-        // 🔥 NUEVO: mostrar IP del cliente que se conecta
+        /* Mostrar IP del cliente */
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
         printf("[NUEVA CONEXION] %s:%d\n", client_ip, ntohs(client_addr.sin_port));
@@ -132,6 +145,7 @@ int main(int argc, char **argv) {
             args->ip[sizeof(args->ip) - 1] = '\0';
         }
 
+        /* Crear hilo por cliente */
         pthread_t tid;
         if (pthread_create(&tid, NULL, client_session_thread, args) != 0) {
             perror("pthread_create session");
